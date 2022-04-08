@@ -158,7 +158,7 @@ export const useGetAsideCached = (asideKey) => {
 import _ from "lodash";
 
 // 검색시 debounce
-const debounce = _.debounce((e) => handleSearchChange(e), 300);
+const debounce = _.debounce((e) => handleSearchChange(e), 200);
 const debounceSearch = useCallback(debounce, [debounce]);
 ```
 
@@ -186,7 +186,7 @@ const debounceSearch = useCallback(debounce, [debounce]);
 #### /components/Aside.jsx
 
 ```javascript
-// Object.entries(obj) : 객체의 키와 값을 [key, value]의 배열로 반환(객체 ==> 배열)
+// Object.entries(obj) : 객체의 키와 값을 [key, value]의 배열로 반환(객체 ==> 2차원 배열)
 // [{style: ''}, {season: ''}, {occasion: ''}, {fabric: ''}, {sense: ''}, {pattern: ''}]
 const transAttribute = (attributes) => {
   return attributes.map((v) => {
