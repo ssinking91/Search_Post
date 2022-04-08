@@ -1,70 +1,197 @@
-# Getting Started with Create React App
+## ⚙️ 기능구현
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+<br/>
 
-## Available Scripts
+### 🛠 <span style="color: #2D3748; background-color:#fff5b1;">**LocalStorage custom hook**</span>
 
-In the project directory, you can run:
+#### /hooks/useLocalStorage.js
 
-### `yarn start`
+```javascript
+import { useState } from "react";
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+export const useLocalStorage = (key, initialState) => {
+  const getLocalStorage = () => {
+    try {
+      const item = localStorage.getItem(key);
+      return item !== null ? JSON.parse(item) : initialState;
+    } catch (e) {
+      console.error(e);
+      return initialState;
+    }
+  };
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+  const [storage, setStorage] = useState(getLocalStorage());
 
-### `yarn test`
+  const setLocalStorage = (value) => {
+    try {
+      setStorage(value);
+      const parsedValue = JSON.stringify(value);
+      localStorage.setItem(key, parsedValue);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  return [storage, setLocalStorage];
+};
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+<br />
 
-### `yarn build`
+### 🛠 <span style="color: #2D3748; background-color:#fff5b1;">**QueryString custom hook**</span>
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+#### /hooks/useGetQs.js
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```javascript
+import { useSearchParams } from "react-router-dom";
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+const useGetQs = (...args) => {
+  // const [searchParams, setSearchParams] = useSearchParams();
+  // const target = searchParams.get('target');
+  const [searchParams] = useSearchParams();
+  // ...args = ["target", "option"]
+  return args.reduce((acc, cur) => {
+    // acc[cur] : object.key / searchParams.get(cur) : object.value
+    acc[cur] = searchParams.get(cur);
+    return acc;
+  }, {});
+};
 
-### `yarn eject`
+export default useGetQs;
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+<br />
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 🛠 <span style="color: #2D3748; background-color:#fff5b1;">**Cach custom hook**</span>
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+#### /hooks/useGetAsideCached.js
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```javascript
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { useLocalStorage } from "./useLocalStorage";
 
-## Learn More
+// Aside 데이터 api 호출
+const getAsideApi = async () => {
+  try {
+    const { data, status, statusText } = await axios.get(
+      `https://static.pxl.ai/problem/data/regions.json`
+    );
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+    if (status >= 400) {
+      alert(`잘못된 요청입니다. statusText: ${statusText}`);
+    } else if (status >= 500) {
+      alert(`서버 에러입니다. statusText: ${statusText}`);
+    }
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+    return {
+      data,
+      status,
+      isLoading: false,
+    };
+  } catch (e) {
+    alert(`에러가 발생했습니다. 잠시후 다시 실행해 주세요. `);
+    return {
+      data: undefined,
+      status: e?.response?.status,
+      isLoading: false,
+    };
+  }
+};
 
-### Code Splitting
+// Number.isNaN() : 어떤 값이 NaN인지 판별
+// !Number.isNaN(Number(str)) => 숫자가 맞다면
+const isNumber = (str) => !Number.isNaN(Number(str));
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+// api 호출 데이터 중 target 데이터 가져오기
+// data = [{…}, ...]
+const findAsideItem = (data, asideKey) => {
+  if (!data) return undefined;
 
-### Analyzing the Bundle Size
+  return isNumber(asideKey)
+    ? data.find(({ product_code }) => product_code === Number(asideKey))
+    : data.find(({ image_url }) => image_url.includes(asideKey));
+};
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+// Aside custom hooks
+export const useGetAsideCached = (asideKey) => {
+  // asideKey = { target }
+  const [isLoading, setIsLoading] = useState(true);
+  const [storedAsideItem, setStoredAsideItem] = useLocalStorage("region", []);
+  const [asideItem, setAsideItem] = useState(undefined);
 
-### Making a Progressive Web App
+  const callApi = async () => {
+    setIsLoading(true);
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+    // 캐시된 데이터를 불러오기(object.key : [{…}] / {…} = {key: 'target', value: {…}})
+    const cached = storedAsideItem.find((i) => i.key === asideKey);
 
-### Advanced Configuration
+    // 캐시된 데이터가 있다면
+    if (cached) {
+      setAsideItem(cached.value);
+      return setIsLoading(false);
+    }
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+    // 캐시된 데이터가 없다면
+    const { data } = await getAsideApi();
+    const item = findAsideItem(data, asideKey);
 
-### Deployment
+    setStoredAsideItem([...storedAsideItem, { key: asideKey, value: item }]);
+    setAsideItem(item);
+    setIsLoading(false);
+  };
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+  useEffect(() => {
+    callApi();
+  }, [asideKey]);
 
-### `yarn build` fails to minify
+  return [asideItem, isLoading];
+};
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+<br />
+
+### 🛠 <span style="color: #2D3748; background-color:#fff5b1;">**lodash debounce**</span>
+
+#### /components/SerchBar.jsx
+
+```javascript
+import _ from "lodash";
+
+// 검색시 debounce
+const debounce = _.debounce((e) => handleSearchChange(e), 300);
+const debounceSearch = useCallback(debounce, [debounce]);
+```
+
+<br />
+
+### 🛠 <span style="color: #2D3748; background-color:#fff5b1;">**CSS Grid 반응형**</span>
+
+#### /components/Post.jsx
+
+```css
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15%, auto));
+  grid-gap: 10px;
+  @media screen and (max-width: 850px) {
+    grid-template-columns: repeat(auto-fit, minmax(30%, auto));
+  }
+`;
+```
+
+<br />
+
+### 🛠 <span style="color: #2D3748; background-color:#fff5b1;">**Object.entries(obj)**</span>
+
+#### /components/Aside.jsx
+
+```javascript
+// Object.entries(obj) : 객체의 키와 값을 [key, value]의 배열로 반환(객체 ==> 배열)
+// [{style: ''}, {season: ''}, {occasion: ''}, {fabric: ''}, {sense: ''}, {pattern: ''}]
+const transAttribute = (attributes) => {
+  return attributes.map((v) => {
+    const [key, value] = Object.entries(v)[0];
+    return [key, value];
+  });
+};
+```
