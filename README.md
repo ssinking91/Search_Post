@@ -1,3 +1,13 @@
+## ⚙️ 기능 시연 
+
+<br/>
+
+<div align="center">
+    <img width="500px" height="300px" src="https://user-images.githubusercontent.com/89959952/162450936-88e4b287-1bd9-4e2c-bd74-1a86823f9b2b.gif"/>
+</div>
+
+<br/>
+
 ## ⚙️ 기능구현
 
 <br/>
